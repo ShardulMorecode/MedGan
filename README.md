@@ -92,7 +92,7 @@ python test_model.py
 
 Here’s an example of a successfully enhanced medical image:
 
-![Enhanced Medical Image](results/enhanced_sample.jpg)
+![Enhanced Medical Image](https://github.com/ShardulMorecode/MedGan/blob/main/Project/results/Screenshot%202025-04-02%20135700.png)
 
 > *Original image is low-resolution and noisy, while the enhanced output is clearer and more defined using GAN.*
 
