@@ -1,0 +1,21 @@
+Key Strategies for Better Output
+1️⃣ Increase Training Epochs (But Monitor Loss Carefully)
+Right now, 5 epochs is too low for a GAN to fully converge.
+Try increasing to 30-50 epochs but watch the loss values carefully.
+If D Loss → 0 and G Loss → high, your Generator is too weak → Adjust training balance.
+2️⃣ Use a Lower Learning Rate
+Currently: lr=0.0002
+Try lowering it to 0.0001 or even 0.00005 to allow the model to learn more fine details.
+Slower learning prevents the GAN from collapsing (Generator producing meaningless outputs).
+3️⃣ Use a Better Loss Function for GAN Stability
+Right now, we use Binary Cross Entropy (BCE), which is known to be unstable.
+Try Wasserstein loss (WGAN) or Least Squares GAN (LSGAN) for more stable training.
+4️⃣ Add Noise to Training (Regularization)
+GANs sometimes overfit if they see the same data without variations.
+Add random noise to input images → Helps model learn better generalization.
+5️⃣ Increase Training Data & Use Augmentations
+If dataset is small, the model memorizes instead of learning.
+Use image augmentations (flipping, rotation, brightness changes).
+6️⃣ Use a PatchGAN Discriminator
+Your current Discriminator looks at the whole image.
+Instead, use PatchGAN (which evaluates local patches) to force the Generator to sharpen small details.

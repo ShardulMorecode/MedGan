@@ -1,0 +1,107 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+import os
+import cv2
+import numpy as np
+import torchvision.models as models
+from generator import Generator
+from discriminator import Discriminator
+
+# Check for GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.backends.cudnn.benchmark = True  # Optimizes CUDA performance
+
+# Dataset Class
+class MedicalImageDataset(Dataset):
+    def __init__(self, data_path, transform=None):
+        self.data_path = data_path
+        self.transform = transform
+        self.images = [os.path.join(data_path, img) for img in os.listdir(data_path)]
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img_path = self.images[idx]
+        image = cv2.imread(img_path)
+        image = cv2.resize(image, (256, 256))
+        image = image / 255.0  # Normalize
+        image = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1)  # (H, W, C) → (C, H, W)
+        return image.to(device), image.to(device)  # Move data to GPU if available
+
+# Define Perceptual Loss (VGG19-based)
+class PerceptualLoss(nn.Module):
+    def __init__(self, layer_index=8):  # Using early VGG layers
+        super(PerceptualLoss, self).__init__()
+        vgg = models.vgg19(weights=models.VGG19_Weights.IMAGENET1K_V1).features  # Use latest VGG weights
+        self.feature_extractor = nn.Sequential(*list(vgg.children())[:layer_index]).eval()
+        
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False  # Freeze VGG layers
+
+        self.criterion = nn.L1Loss()  # L1 Loss is good for perceptual loss
+
+    def forward(self, generated, target):
+        gen_features = self.feature_extractor(generated)
+        target_features = self.feature_extractor(target)
+        return self.criterion(gen_features, target_features)
+
+# Initialize Models
+generator = Generator().to(device)
+discriminator = Discriminator().to(device)
+
+# Loss Functions
+adversarial_loss = nn.BCELoss()
+perceptual_loss = PerceptualLoss().to(device) 
+
+# Optimizers
+optimizer_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))  
+optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999)) 
+
+# Data Loader (Reduced batch size to 4)
+dataset = MedicalImageDataset("D:/Final Year/Mega project/Project/data/processed/stare") 
+dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
+
+# Training Loop
+EPOCHS = 5
+
+for epoch in range(EPOCHS):
+    for real_images, _ in dataloader:
+        # Add Noise to Discriminator Inputs (Prevents Overfitting)
+        real_images_noisy = real_images + 0.05 * torch.randn_like(real_images).to(device)
+        
+        # Generate Fake Images
+        fake_images = generator(real_images)
+        fake_images_noisy = fake_images + 0.05 * torch.randn_like(fake_images).to(device)
+
+        # Train Discriminator
+        optimizer_D.zero_grad()
+        outputs_real = discriminator(real_images_noisy)
+        real_labels = torch.ones_like(outputs_real).to(device)
+        d_loss_real = adversarial_loss(outputs_real, real_labels)
+
+        outputs_fake = discriminator(fake_images_noisy.detach())
+        fake_labels = torch.zeros_like(outputs_fake).to(device)
+        d_loss_fake = adversarial_loss(outputs_fake, fake_labels)
+
+        d_loss = d_loss_real + d_loss_fake
+        d_loss.backward()
+        optimizer_D.step()
+
+        # Train Generator
+        optimizer_G.zero_grad()
+        outputs = discriminator(fake_images)
+        g_loss_adv = adversarial_loss(outputs, real_labels)  # Fooling D
+        g_loss_perceptual = perceptual_loss(fake_images, real_images)  # Using VGG19-based loss
+        g_loss = g_loss_adv + 10 * g_loss_perceptual  
+
+        g_loss.backward()
+        optimizer_G.step()
+
+    print(f"Epoch [{epoch+1}/{EPOCHS}], D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}")
+
+print("✅ Training Complete!")
+torch.save(generator.state_dict(), "D:/Final Year/Mega project/Project/saved_models/generator_v5.pth")
+torch.save(discriminator.state_dict(), "D:/Final Year/Mega project/Project/saved_models/discriminator_v5.pth")
