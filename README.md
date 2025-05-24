@@ -1,6 +1,6 @@
 # 🧠 Medical Image Enhancement using GANs
 
-**🚧 Project Status: In Progress**
+**Project Status: Completed**
 
 This repository contains the implementation of a Medical Image Enhancement system using Generative Adversarial Networks (GANs). The aim is to enhance low-quality or noisy medical images (e.g., retinal scans and brain MRIs) to aid in clinical diagnostics and support healthcare professionals. The project is implemented using PyTorch and deployed via Streamlit for easy interaction.
 
